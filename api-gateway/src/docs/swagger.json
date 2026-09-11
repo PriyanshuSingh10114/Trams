@@ -1,0 +1,320 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Microservices System API Documentation",
+    "description": "Production-grade microservices system demonstrating asynchronous event-driven communication via NATS JetStream, database-per-service isolation with PostgreSQL & Prisma, secure API Gateway with rate limiting & JWT verification, Transactional Outbox pattern, and idempotent consumer handling.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Backend Engineering Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "API Gateway (Local / Docker)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter JWT token received from /api/users/login or /api/users/register"
+      }
+    },
+    "schemas": {
+      "StandardSuccess": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": { "type": "object" }
+        }
+      },
+      "StandardError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "VALIDATION_ERROR" },
+              "message": { "type": "string", "example": "Invalid request payload" },
+              "requestId": { "type": "string", "example": "d135439a-58ee-4ec5-b463-2a41764eb8ec" },
+              "details": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        }
+      },
+      "UserRegisterRequest": {
+        "type": "object",
+        "required": ["name", "email", "password"],
+        "properties": {
+          "name": { "type": "string", "example": "John Doe" },
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "password": { "type": "string", "example": "StrongPass123!" }
+        }
+      },
+      "UserLoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "password": { "type": "string", "example": "StrongPass123!" }
+        }
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Johnathan Doe" },
+          "email": { "type": "string", "format": "email", "example": "john.doe.new@example.com" }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NotificationResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "type": { "type": "string", "example": "WELCOME" },
+          "title": { "type": "string", "example": "Welcome to the platform!" },
+          "message": { "type": "string" },
+          "status": { "type": "string", "example": "DELIVERED" },
+          "eventId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Gateway Health Check",
+        "tags": ["System"],
+        "responses": {
+          "200": { "description": "Gateway is alive" }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "System Readiness Check",
+        "tags": ["System"],
+        "description": "Checks connectivity to User Service, Notification Service, and database dependencies",
+        "responses": {
+          "200": { "description": "All microservices and dependencies ready" },
+          "503": { "description": "One or more upstream dependencies unhealthy" }
+        }
+      }
+    },
+    "/api/users/register": {
+      "post": {
+        "summary": "Register a new user",
+        "tags": ["Users & Auth"],
+        "description": "Creates a new user account atomically, stores user.created in Outbox table, publishes event to NATS JetStream, and returns JWT token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserRegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": { "$ref": "#/components/schemas/UserResponse" },
+                        "token": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/schemas/StandardError" },
+          "409": { "description": "Email already exists" },
+          "429": { "description": "Rate limit exceeded" }
+        }
+      }
+    },
+    "/api/users/login": {
+      "post": {
+        "summary": "User login",
+        "tags": ["Users & Auth"],
+        "description": "Authenticates user with bcrypt password verification and returns JWT token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserLoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": { "$ref": "#/components/schemas/UserResponse" },
+                        "token": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" },
+          "429": { "description": "Brute-force protection rate limit" }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "tags": ["Users & Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Profile details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "patch": {
+        "summary": "Update authenticated user profile",
+        "tags": ["Users & Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "description": "Updates profile details and publishes user.updated event to NATS JetStream.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "summary": "Get user by ID",
+        "tags": ["Users & Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User details" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "summary": "Get notifications for authenticated user",
+        "tags": ["Notifications"],
+        "security": [{ "BearerAuth": [] }],
+        "description": "Retrieves notifications created asynchronously by Notification Service upon receiving JetStream events.",
+        "responses": {
+          "200": {
+            "description": "List of user notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/NotificationResponse" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/notifications/{id}": {
+      "get": {
+        "summary": "Get notification by ID",
+        "tags": ["Notifications"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Notification details" },
+          "404": { "description": "Notification not found" }
+        }
+      }
+    }
+  }
+}

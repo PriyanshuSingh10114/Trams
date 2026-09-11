@@ -1,0 +1,28 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "description": "Notification service consuming NATS JetStream events with idempotent processing and dead-letter handling",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate deploy",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "nats": "^2.28.2",
+    "uuid": "^10.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}

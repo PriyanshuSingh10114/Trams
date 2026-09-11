@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # NATS Message Broker with JetStream Enabled
+  # ==========================================
+  nats:
+    image: nats:2.10-alpine
+    container_name: nats-broker
+    command: ["--js", "--user", "app_user", "--pass", "app_secret_pass", "-m", "8222"]
+    ports:
+      - "4222:4222"  # Client port
+      - "8222:8222"  # Monitoring dashboard
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/varz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # ==========================================
+  # User Service Database (PostgreSQL)
+  # ==========================================
+  user-db:
+    image: postgres:16-alpine
+    container_name: user-db
+    environment:
+      POSTGRES_DB: user_service_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_user_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_service_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # ==========================================
+  # Notification Service Database (PostgreSQL)
+  # ==========================================
+  notification-db:
+    image: postgres:16-alpine
+    container_name: notification-db
+    environment:
+      POSTGRES_DB: notification_service_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_notification_secret
+    ports:
+      - "5433:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_service_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # ==========================================
+  # User Service
+  # ==========================================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      SERVICE_NAME: user-service
+      DATABASE_URL: postgresql://postgres:postgres_user_secret@user-db:5432/user_service_db?schema=public
+      NATS_URL: nats://nats:4222
+      NATS_USER: app_user
+      NATS_PASSWORD: app_secret_pass
+      JWT_SECRET: super-secure-jwt-secret-replace-in-production-at-least-32-chars-long
+      JWT_EXPIRES_IN: 24h
+      INTERNAL_API_KEY: internal-service-secret-key-replace-in-production
+    ports:
+      - "3001:3001"
+    depends_on:
+      user-db:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microservices-net
+
+  # ==========================================
+  # Notification Service
+  # ==========================================
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      SERVICE_NAME: notification-service
+      DATABASE_URL: postgresql://postgres:postgres_notification_secret@notification-db:5432/notification_service_db?schema=public
+      NATS_URL: nats://nats:4222
+      NATS_USER: app_user
+      NATS_PASSWORD: app_secret_pass
+      INTERNAL_API_KEY: internal-service-secret-key-replace-in-production
+    ports:
+      - "3002:3002"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microservices-net
+
+  # ==========================================
+  # API Gateway
+  # ==========================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SERVICE_NAME: api-gateway
+      USER_SERVICE_URL: http://user-service:3001
+      NOTIFICATION_SERVICE_URL: http://notification-service:3002
+      JWT_SECRET: super-secure-jwt-secret-replace-in-production-at-least-32-chars-long
+      INTERNAL_API_KEY: internal-service-secret-key-replace-in-production
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX_REQUESTS: 100
+      AUTH_RATE_LIMIT_WINDOW_MS: 900000
+      AUTH_RATE_LIMIT_MAX_REQUESTS: 15
+      CORS_ORIGIN: "*"
+    ports:
+      - "3000:3000"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microservices-net
+
+volumes:
+  user_db_data:
+  notification_db_data:
+
+networks:
+  microservices-net:
+    driver: bridge

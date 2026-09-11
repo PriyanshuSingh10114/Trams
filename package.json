@@ -1,0 +1,31 @@
+{
+  "name": "microservices-assignment",
+  "version": "1.0.0",
+  "description": "Production-grade microservices system with User Service, Notification Service, API Gateway, and NATS JetStream",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:all": "npm install --prefix api-gateway && npm install --prefix user-service && npm install --prefix notification-service",
+    "test:user": "npm test --prefix user-service",
+    "test:notification": "npm test --prefix notification-service",
+    "test:gateway": "npm test --prefix api-gateway",
+    "test:all": "npm run test:user && npm run test:notification && npm run test:gateway",
+    "test:e2e": "node scripts/test-e2e.js",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down -v",
+    "docker:logs": "docker compose logs -f"
+  },
+  "keywords": [
+    "microservices",
+    "nats",
+    "jetstream",
+    "postgresql",
+    "prisma",
+    "event-driven",
+    "api-gateway",
+    "idempotency",
+    "outbox-pattern"
+  ],
+  "author": "Internship Candidate",
+  "license": "MIT"
+}

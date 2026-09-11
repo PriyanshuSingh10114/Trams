@@ -1,0 +1,45 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  type        String    // e.g. WELCOME, PROFILE_UPDATED
+  title       String
+  message     String
+  status      String    @default("DELIVERED") // DELIVERED, READ, FAILED
+  eventId     String    @unique
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model ProcessedEvent {
+  eventId       String   @id
+  eventType     String
+  correlationId String?
+  status        String   @default("PROCESSED") // PROCESSED, SKIPPED, FAILED
+  processedAt   DateTime @default(now())
+
+  @@map("processed_events")
+}
+
+model DeadLetterEvent {
+  id            String   @id @default(uuid())
+  eventId       String?
+  eventType     String?
+  payload       Json
+  reason        String
+  failedAt      DateTime @default(now())
+
+  @@map("dead_letter_events")
+}
