@@ -24,16 +24,22 @@ export function createApp() {
   app.use('/', healthRoutes);
   app.use('/api-docs', docsRoutes);
 
-  // Auth Routes (Strict Rate Limiting)
-  app.use('/api/users/register', authRateLimiter, userServiceProxy);
-  app.use('/api/users/login', authRateLimiter, userServiceProxy);
+  // Auth rate limiting on registration and login
+  app.use('/api/users/register', authRateLimiter);
+  app.use('/api/users/login', authRateLimiter);
 
-  // Protected User Routes (General Rate Limiting + Optional / Passed JWT verification)
-  app.use('/api/users/me', generalRateLimiter, verifyJwt, userServiceProxy);
-  app.use('/api/users', generalRateLimiter, userServiceProxy);
+  // General rate limiting on all /api routes
+  app.use('/api', generalRateLimiter);
 
-  // Protected Notification Routes (JWT verification required)
-  app.use('/api/notifications', generalRateLimiter, verifyJwt, notificationServiceProxy);
+  // JWT verification on protected user endpoints
+  app.use('/api/users/me', verifyJwt);
+
+  // JWT verification on protected notification endpoints
+  app.use('/api/notifications', verifyJwt);
+
+  // Reverse Proxies
+  app.use(userServiceProxy);
+  app.use(notificationServiceProxy);
 
   // 404 Fallback
   app.use((req, res) => {

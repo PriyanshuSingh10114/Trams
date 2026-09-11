@@ -2,11 +2,12 @@ import { prisma } from './prisma.js';
 
 export const outboxRepository = {
   async create(eventData, tx = prisma) {
+    const payload = eventData.payload ? eventData.payload : eventData;
     return tx.outboxEvent.create({
       data: {
-        eventId: eventData.eventId,
-        eventType: eventData.eventType,
-        payload: eventData,
+        eventId: eventData.eventId || payload.eventId,
+        eventType: eventData.eventType || payload.eventType,
+        payload: payload,
         status: 'PENDING'
       }
     });

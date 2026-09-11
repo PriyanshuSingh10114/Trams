@@ -5,18 +5,17 @@ import { logger } from '../utils/logger.js';
 export const userServiceProxy = createProxyMiddleware({
   target: config.userServiceUrl,
   changeOrigin: true,
+  pathFilter: (path) => path.startsWith('/api/users'),
   pathRewrite: {
     '^/api/users': '/users'
   },
   on: {
     proxyReq: (proxyReq, req) => {
-      // Propagate correlation and request IDs
       if (req.correlationId) {
         proxyReq.setHeader('X-Correlation-ID', req.correlationId);
         proxyReq.setHeader('X-Request-ID', req.correlationId);
       }
 
-      // Propagate internal secret and user info if authenticated
       proxyReq.setHeader('X-Internal-API-Key', config.internalApiKey);
       if (req.user) {
         proxyReq.setHeader('X-User-Id', req.user.id);
@@ -25,7 +24,6 @@ export const userServiceProxy = createProxyMiddleware({
         }
       }
 
-      // If express.json() already parsed the body, restream it to the proxy
       if (req.body && Object.keys(req.body).length > 0) {
         const bodyData = JSON.stringify(req.body);
         proxyReq.setHeader('Content-Type', 'application/json');
@@ -52,6 +50,7 @@ export const userServiceProxy = createProxyMiddleware({
 export const notificationServiceProxy = createProxyMiddleware({
   target: config.notificationServiceUrl,
   changeOrigin: true,
+  pathFilter: (path) => path.startsWith('/api/notifications'),
   pathRewrite: {
     '^/api/notifications': '/notifications'
   },

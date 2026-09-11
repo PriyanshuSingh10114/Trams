@@ -11,9 +11,14 @@
     "test:gateway": "npm test --prefix api-gateway",
     "test:all": "npm run test:user && npm run test:notification && npm run test:gateway",
     "test:e2e": "node scripts/test-e2e.js",
+    "test:resilience": "node scripts/test-resilience.js",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down -v",
     "docker:logs": "docker compose logs -f"
+  },
+  "dependencies": {
+    "nats": "^2.28.2",
+    "uuid": "^10.0.0"
   },
   "keywords": [
     "microservices",

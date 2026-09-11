@@ -5,7 +5,11 @@ import { logger } from '../utils/logger.js';
 
 export const notificationService = {
   async processEvent(event) {
-    const { eventId, eventType, correlationId, data } = event;
+    const rawEvent = event.payload || event;
+    const eventId = rawEvent.eventId || event.eventId;
+    const eventType = rawEvent.eventType || event.eventType;
+    const correlationId = rawEvent.correlationId || event.correlationId;
+    const data = rawEvent.data || rawEvent;
 
     if (!eventId || !eventType) {
       throw new Error('Malformed event: eventId and eventType are required');
