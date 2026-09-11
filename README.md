@@ -229,3 +229,13 @@ The E2E suite verifies:
 2. **mTLS & NKey Authentication**: Upgrade internal NATS and HTTP connections to mutual TLS and cryptographic NKey authentication.
 3. **OpenTelemetry (OTel)**: Distributed tracing propagation across HTTP headers and NATS JetStream message metadata into Jaeger/Zipkin.
 4. **Prometheus & Grafana**: Service metrics exporter (`http_requests_total`, `nats_messages_processed_total`, `consumer_lag`).
+
+---
+
+## 10. Author & Contact
+
+* **Author**: Priyanshu Singh
+* **GitHub**: [@PriyanshuSingh10114](https://github.com/PriyanshuSingh10114)
+* **Repository**: [https://github.com/PriyanshuSingh10114/Trams](https://github.com/PriyanshuSingh10114/Trams)
+* **Project Role**: Backend & Microservices Engineering Intern Assignment
+
