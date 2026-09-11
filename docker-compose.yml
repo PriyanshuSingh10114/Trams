@@ -30,7 +30,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_user_secret
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - user_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,7 +52,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_notification_secret
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
       - notification_db_data:/var/lib/postgresql/data
     healthcheck:
