@@ -1,5 +1,8 @@
 FROM node:22-alpine
 
+# Install OpenSSL for Prisma engine compatibility on Alpine
+RUN apk add --no-cache openssl libc6-compat
+
 WORKDIR /app
 
 # Install dependencies first for better caching
